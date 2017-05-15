@@ -736,9 +736,9 @@ class Model:
         if var.op.name.startswith('model/'):
             return var.op.name[len('model/'):]
 
-    def _restore_slim(self):
+    def _restore_slim(self, slim_model_name):
         variables_to_restore = slim.get_model_variables()
-        variables_to_restore = {self.name_in_checkpoint(var): var for var in variables_to_restore}
+        variables_to_restore = {self.name_in_checkpoint(var): var for var in variables_to_restore if slim_model_name in var.op.name}
         saver = tf_saver.Saver(variables_to_restore)
         saver.restore(self.sess, self.flags['restore_slim_file'])
 
@@ -748,10 +748,12 @@ class Model:
             self._restore()
         else:
             if self.flags['restore_slim_file'] is not None:
-                self.print_log('Restoring TF-Slim Model.')
+                # Extract the slim model name (e.g. resnet_v1_50)
+                slim_model_name = self.flags['restore_slim_file'].split('.')[-2].split('/')[-1]
+                self.print_log('Restoring TF-Slim Model: {0}'.format(slim_model_name))
 
                 # Restore Slim Model
-                self._restore_slim()
+                self._restore_slim(slim_model_name)
 
                 # Initialize all other trainable variables, i.e. those which are uninitialized
                 uninit_vars = self.sess.run(tf.report_uninitialized_variables())
