@@ -492,7 +492,6 @@ class Layers:
                 s_value=None, bn=None, trainable=True):
         '''
         Shortcut for creating a 2D Convolutional Neural Network in one line
-
         Stacks multiple conv2d layers, with arguments for each layer defined in a list.
         If an argument is left as None, then the conv2d defaults are kept
         :param filter_sizes: int. assumes square filter
@@ -591,7 +590,6 @@ class Layers:
                   s_value=None, bn=None, trainable=True):
         '''
         Shortcut for creating a 2D Deconvolutional Neural Network in one line
-
         Stacks multiple deconv2d layers, with arguments for each layer defined in a list.
         If an argument is left as None, then the conv2d defaults are kept
         :param filter_sizes: int. assumes square filter
@@ -816,38 +814,6 @@ class Layers:
                     b = self.const_variable(name='bias', shape=[output_channels], value=0.0)
                     self.input = tf.add(self.input, b)
 
-<<<<<<< HEAD
-    def _restore_slim(self, slim_model_name):
-        variables_to_restore = slim.get_model_variables()
-        variables_to_restore = {self.name_in_checkpoint(var): var for var in variables_to_restore if slim_model_name in var.op.name}
-        saver = tf_saver.Saver(variables_to_restore)
-        saver.restore(self.sess, self.flags['restore_slim_file'])
-
-    def _initialize_model(self):
-        self.sess.run(tf.local_variables_initializer())
-        if self.flags['restore'] is True:
-            self._restore()
-        else:
-            if self.flags['restore_slim_file'] is not None:
-                # Extract the slim model name (e.g. resnet_v1_50)
-                slim_model_name = self.flags['restore_slim_file'].split('.')[-2].split('/')[-1]
-                self.print_log('Restoring TF-Slim Model: {0}'.format(slim_model_name))
-
-                # Restore Slim Model
-                self._restore_slim(slim_model_name)
-
-                # Initialize all other trainable variables, i.e. those which are uninitialized
-                uninit_vars = self.sess.run(tf.report_uninitialized_variables())
-                vars_list = list()
-                for v in uninit_vars:
-                    var = v.decode("utf-8")
-                    vars_list.append(var)
-                uninit_vars_tf = [v for v in tf.global_variables() if v.name.split(':')[0] in vars_list]
-                self.sess.run(tf.variables_initializer(var_list=uninit_vars_tf))
-            else:
-                self.sess.run(tf.global_variables_initializer())
-                self.print_log("Model training from scratch.")
-=======
             # Add input and output for final return
             self.input = self.input + additive_output
         self.print_log(scope + ' output: ' + str(self.input.get_shape()))
@@ -865,7 +831,6 @@ class Layers:
             self.input = (tf.nn.sigmoid(a * (mean - b)) - tf.nn.sigmoid(-a * b)) / (
                 tf.sigmoid(a * (1 - b)) - tf.sigmoid(-a * b))
         self.print_log(scope + ' output: ' + str(self.input.get_shape()))
->>>>>>> upstream/master
 
     def get_output(self):
         """
