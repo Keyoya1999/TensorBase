@@ -297,15 +297,15 @@ class Model:
     def _initialize_model(self):
         """ Initialize the defined network and restore from files is so specified. """
         # Initialize all variables first
-        self.sess.run(tf.local_variables_initializer())
+        self.sess.run(tf.global_variables_initializer())
         if self.flags['RESTORE_META'] == 1:
             self.print_log('Restoring from .meta file')
-            self.sess.run(tf.global_variables_initializer())
+#            self.sess.run(tf.global_variables_initializer())
             self._restore_meta()
         elif self.flags['RESTORE_SLIM'] == 1:
             self.print_log('Restoring TF-Slim Model.')
             all_model_variables = tf.global_variables()
-            self.sess.run(tf.global_variables_initializer())
+#            self.sess.run(tf.global_variables_initializer())
             self._restore_slim(all_model_variables)
         else:
             self.print_log("Model training from scratch.")
