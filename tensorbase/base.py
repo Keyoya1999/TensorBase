@@ -264,9 +264,9 @@ class Model:
         merged = tf.summary.merge_all()
         saver = tf.train.Saver()
         if type(self.flags['GPU']) is int:
-            gpu_options = tf.GPUOptions(allow_growth=True, visible_device_list=self.check_str(self.flags['GPU']))
-        else:
-            gpu_options = tf.GPUOptions(allow_growth=True)
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(self.flags['GPU'])
+            print('Using GPU %d' % self.flags['GPU'])
+        gpu_options = tf.GPUOptions(allow_growth=True)
         config = tf.ConfigProto(log_device_placement=False, gpu_options=gpu_options)
         sess = tf.Session(config=config)
         writer = tf.summary.FileWriter(self.flags['LOGGING_DIRECTORY'], sess.graph)
@@ -300,12 +300,10 @@ class Model:
         self.sess.run(tf.global_variables_initializer())
         if self.flags['RESTORE_META'] == 1:
             self.print_log('Restoring from .meta file')
-#            self.sess.run(tf.global_variables_initializer())
             self._restore_meta()
         elif self.flags['RESTORE_SLIM'] == 1:
             self.print_log('Restoring TF-Slim Model.')
             all_model_variables = tf.global_variables()
-#            self.sess.run(tf.global_variables_initializer())
             self._restore_slim(all_model_variables)
         else:
             self.print_log("Model training from scratch.")
