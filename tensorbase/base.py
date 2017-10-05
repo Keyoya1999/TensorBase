@@ -15,10 +15,11 @@ import logging
 import tensorflow.contrib.layers as init
 import math
 import os
-import datetime
-import tensorflow.contrib.slim as slim
-from tensorflow.python.training import saver as tf_saver
+#import datetime
+#import tensorflow.contrib.slim as slim
+#from tensorflow.python.training import saver as tf_saver
 
+from tensorflow.python import pywrap_tensorflow
 
 class Layers:
     """
@@ -726,47 +727,77 @@ class Model:
         writer = tf.summary.FileWriter(self.flags['logging_directory'], sess.graph)
         return merged, saver, sess, writer
 
-    def _restore(self):
-        filename = self.flags['restore_directory'] + self.flags['restore_file']
+    def _initialize_model(self):
+        """ Initialize the defined network and restore from files is so specified. """
+        # Initialize all variables first
+        self.sess.run(tf.global_variables_initializer())
+        if self.flags['restore'] == 1:
+            self.print_log('Restoring from .meta file')
+            self._restore_meta()
+        elif self.flags['restore_slim_file'] is not None:
+            self.print_log('Restoring TF-Slim Model.')
+            all_model_variables = tf.global_variables()
+            self._restore_slim(all_model_variables)
+        else:
+            self.print_log("Model training from scratch.")
+    
+    def _restore_meta(self):
+        """ Restore from meta file. 'RESTORE_META_FILE' is expected to have .meta at the end. """
+        restore_meta_file = 'part_' + str(self.flags['file_epoch']) + '.ckpt.meta'
+        filename = self.flags['restore_directory'] + restore_meta_file
         new_saver = tf.train.import_meta_graph(filename)
         new_saver.restore(self.sess, filename[:-5])
-        self.print_log("Model restored from %s" % self.flags['restore_file'])
-
-    def name_in_checkpoint(self, var):
-        if var.op.name.startswith('model/'):
-            return var.op.name[len('model/'):]
-
-    def _restore_slim(self):
-        variables_to_restore = slim.get_model_variables()
-        variables_to_restore = {self.name_in_checkpoint(var): var for var in variables_to_restore}
-        saver = tf_saver.Saver(variables_to_restore)
+        self.print_log("Model restored from %s" % restore_meta_file)
+    
+    def _restore_slim(self, variables):
+        """ Restore from tf-slim file (usually a ImageNet pre-trained model). """
+        variables_to_restore = self.get_variables_in_checkpoint_file(self.flags['restore_slim_file'])
+        variables_to_restore = {self.name_in_checkpoint(v): v for v in variables if (self.name_in_checkpoint(v) in variables_to_restore)}
+        if variables_to_restore is []:
+            self.print_log('Check the SLIM checkpoint filename. No model variables matched the checkpoint variables.')
+            exit()
+        saver = tf.train.Saver(variables_to_restore)
         saver.restore(self.sess, self.flags['restore_slim_file'])
+        self.print_log("Model restored from %s" % self.flags['restore_slim_file'])
+        
+#    def _restore(self):
+#        filename = self.flags['restore_directory'] + self.flags['restore_file']
+#        new_saver = tf.train.import_meta_graph(filename)
+#        new_saver.restore(self.sess, filename[:-5])
+#        self.print_log("Model restored from %s" % self.flags['restore_file'])
 
-    def _initialize_model(self):
-        self.sess.run(tf.local_variables_initializer())
-        if self.flags['restore'] is True:
-            self._restore()
-        else:
-            if self.flags['restore_slim_file'] is not None:
-                self.print_log('Restoring TF-Slim Model.')
 
-                # Restore Slim Model
-                self._restore_slim()
-
-                # Initialize all other trainable variables, i.e. those which are uninitialized
-                uninit_vars = self.sess.run(tf.report_uninitialized_variables())
-                vars_list = list()
-                for v in uninit_vars:
-                    var = v.decode("utf-8")
-                    vars_list.append(var)
-                uninit_vars_tf = [v for v in tf.global_variables() if v.name.split(':')[0] in vars_list]
-                self.sess.run(tf.variables_initializer(var_list=uninit_vars_tf))
-            else:
-                self.sess.run(tf.global_variables_initializer())
-                self.print_log("Model training from scratch.")
+#    def _restore_slim(self):
+#        variables_to_restore = slim.get_model_variables()
+#        variables_to_restore = {self.name_in_checkpoint(var): var for var in variables_to_restore}
+#        saver = tf_saver.Saver(variables_to_restore)
+#        saver.restore(self.sess, self.flags['restore_slim_file'])
+#
+#    def _initialize_model(self):
+#        self.sess.run(tf.local_variables_initializer())
+#        if self.flags['restore'] is True:
+#            self._restore()
+#        else:
+#            if self.flags['restore_slim_file'] is not None:
+#                self.print_log('Restoring TF-Slim Model.')
+#
+#                # Restore Slim Model
+#                self._restore_slim()
+#
+#                # Initialize all other trainable variables, i.e. those which are uninitialized
+#                uninit_vars = self.sess.run(tf.report_uninitialized_variables())
+#                vars_list = list()
+#                for v in uninit_vars:
+#                    var = v.decode("utf-8")
+#                    vars_list.append(var)
+#                uninit_vars_tf = [v for v in tf.global_variables() if v.name.split(':')[0] in vars_list]
+#                self.sess.run(tf.variables_initializer(var_list=uninit_vars_tf))
+#            else:
+#                self.sess.run(tf.global_variables_initializer())
+#                self.print_log("Model training from scratch.")
 
     def _save_model(self, section):
-        self.print_log("Optimization Finished!")
+#        self.print_log("Optimization Finished!")
         checkpoint_name = self.flags['logging_directory'] + 'part_%d' % section + '.ckpt'
         save_path = self.saver.save(self.sess, checkpoint_name)
         self.print_log("Model saved in file: %s" % save_path)
@@ -800,3 +831,20 @@ class Model:
             return str(int(obj))
         else:
             return str(obj)
+
+    @staticmethod        
+    def name_in_checkpoint(var):
+        if var.op.name.startswith('model/'):
+            return var.op.name[len('model/'):]
+
+    @staticmethod    
+    def get_variables_in_checkpoint_file(filename):
+        try:
+            reader = pywrap_tensorflow.NewCheckpointReader(filename)
+            var_to_shape_map = reader.get_variable_to_shape_map()
+            return var_to_shape_map
+        except Exception as e:  # pylint: disable=broad-except
+            print(str(e))
+            if "corrupted compressed block contents" in str(e):
+                print("It's likely that your checkpoint file has been compressed "
+                      "with SNAPPY.")
